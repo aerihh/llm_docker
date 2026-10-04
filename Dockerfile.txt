@@ -1,0 +1,49 @@
+# ---------------------------------------------------------------------------
+# Dockerfile for the llm_docker practice project.
+# Each section below explains WHY the instruction is there, so the file can
+# double as a Docker learning exercise.
+# ---------------------------------------------------------------------------
+
+# 1. Base image: start from an official Python image.
+#    "slim" is a trimmed Debian build (~150MB vs ~1GB for the full image) --
+#    smaller images build faster and have a smaller attack surface.
+#    Pin the exact version instead of using ":latest" so builds are repeatable.
+FROM python:3.14-slim
+
+# 2. Set environment variables for the container:
+#    - PYTHONDONTWRITEBYTECODE: skip .pyc files (useless in an ephemeral container)
+#    - PYTHONUNBUFFERED: stream logs immediately instead of buffering them,
+#      so `docker logs` shows output in real time.
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+# 3. Create a working directory inside the container.
+#    All later instructions (COPY, RUN, CMD) run relative to this path.
+WORKDIR /app
+
+# 4. Copy ONLY the dependency manifest first, then install.
+#    Docker caches each layer: as long as requirements.txt does not change,
+#    rebuilds skip the (slow) pip install step and reuse the cache.
+COPY requirements.txt .
+
+# 5. Install dependencies.
+#    --no-cache-dir tells pip not to keep its download cache, which keeps
+#    the image smaller. There is no compiler step here because fastapi and
+#    uvicorn ship prebuilt wheels for this platform.
+RUN pip install --no-cache-dir -r requirements.txt
+
+# 6. Copy the application code. Copied AFTER the dependency layers so that
+#    editing main.py does not invalidate the pip install cache.
+COPY main.py .
+
+# 7. Document that the app listens on port 8000.
+#    This is metadata only -- it does NOT publish the port. Publishing happens
+#    at runtime with `docker run -p 8000:8000`.
+EXPOSE 8000
+
+# 8. Default command: run the ASGI server.
+#    - 0.0.0.0 is required: binding to 127.0.0.1 would only be reachable
+#      from inside the container, not from the host.
+#    - The exec (JSON array) form runs uvicorn as PID 1 so it receives
+#      signals like `docker stop` directly (no shell wrapper in between).
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

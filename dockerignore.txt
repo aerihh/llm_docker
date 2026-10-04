@@ -1,0 +1,10 @@
+# Keep the build context small: docker sends this directory to the daemon
+# on every `docker build`, so exclude things the image does not need.
+denv/
+.git/
+.gitignore
+__pycache__/
+*.pyc
+.dockerignore
+Dockerfile
+README.md
