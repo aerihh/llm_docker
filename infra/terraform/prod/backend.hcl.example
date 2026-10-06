@@ -1,0 +1,7 @@
+# Copy this file to backend.hcl (gitignored) and fill in the values of the
+# PRE-EXISTING storage account/container you use for Terraform state.
+# Then run: terraform init -backend-config=backend.hcl
+resource_group_name  = "tfstate-rg"
+storage_account_name = "sttfstateuniquename"
+container_name       = "tfstate"
+key                  = "llm-docker/prod.tfstate"
