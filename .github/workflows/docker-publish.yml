@@ -45,6 +45,22 @@ jobs:
         with:
           cosign-release: 'v2.2.4'
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      #ruff check
+      - name: ruff check
+        uses: astral-sh/ruff-action@v4.1.0
+
+      #checks for pytest
+      - name: pytest
+        run: pytest
+
       # Set up BuildKit Docker container builder to be able to build
       # multi-platform images and export cache
       # https://github.com/docker/setup-buildx-action
@@ -69,19 +85,48 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
-      # Build and push Docker image with Buildx (don't push on PR)
+      # Build the image locally only (no push yet) so Trivy has something to
+      # scan before anything untrusted reaches the registry.
       # https://github.com/docker/build-push-action
-      - name: Build and push Docker image
-        id: build-and-push
+      - name: Build Docker image (local, for scanning)
+        id: build
         uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
         with:
           context: .
-          push: ${{ github.event_name != 'pull_request' }}
+          push: false
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+      # If this step finds HIGH or CRITICAL issues, it returns exit-code 1,
+      # failing the job before the image below ever gets pushed.
+      - name: Run Trivy Vulnerability Scanner
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          format: 'table'
+          exit-code: '1' # Fail the build if vulnerabilities match
+          ignore-unfixed: true # Skip vulnerabilities that don't have an available patch yet
+          severity: 'HIGH,CRITICAL'
+
+      # Re-run build-push-action, this time pushing (don't push on PR). The
+      # local image/layer cache from the step above makes this effectively
+      # free -- it reuses what was already built, it does not rebuild.
+      - name: Push Docker image
+        id: build-and-push
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      
       # Sign the resulting Docker image digest except on PRs.
       # This will only write to the public Rekor transparency log when the Docker
       # repository is public to avoid leaking data.  If you would like to publish
