@@ -61,7 +61,7 @@ jobs:
       - name: pytest
         env:
           PYTHONPATH: .
-        run: pytest tests/
+        run: pytest
 
       # Set up BuildKit Docker container builder to be able to build
       # multi-platform images and export cache
