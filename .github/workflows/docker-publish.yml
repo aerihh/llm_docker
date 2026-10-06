@@ -59,7 +59,7 @@ jobs:
 
       #checks for pytest
       - name: pytest
-        run: pytest
+        run: pytest tests/
 
       # Set up BuildKit Docker container builder to be able to build
       # multi-platform images and export cache
