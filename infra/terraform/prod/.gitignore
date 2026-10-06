@@ -1,0 +1,29 @@
+# Terraform files
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# IDE
+.idea/
+*.swp
+*.swo
+*~
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local tfvars files (if you want to keep them secret)
+# Uncomment the line below if you don't want to commit terraform.tfvars
+# terraform.tfvars
+
+# Backend config contains real storage account names for state -- keep local
+backend.hcl
