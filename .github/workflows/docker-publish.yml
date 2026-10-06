@@ -59,6 +59,8 @@ jobs:
 
       #checks for pytest
       - name: pytest
+        env:
+          PYTHONPATH: .
         run: pytest tests/
 
       # Set up BuildKit Docker container builder to be able to build
