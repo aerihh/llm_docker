@@ -16,10 +16,13 @@ on:
     branches: [ "main" ]
 
 env:
-  # Use docker.io for Docker Hub if empty
   REGISTRY: ghcr.io
-  # github.repository as <account>/<repo>
-  IMAGE_NAME: ghcr.io/aerihh/llm_docker
+  # FIX 1: repo path ONLY — no registry prefix. The meta step composes
+  # REGISTRY/IMAGE_NAME, so "ghcr.io" here produced ghcr.io/ghcr.io/...
+  IMAGE_NAME: aerihh/llm_docker
+  # FIX 2: one canonical LOCAL name used by build + diagnose + Trivy.
+  # Never published — the push step uses only the metadata tags.
+  IMAGE: ghcr.io/aerihh/llm_docker:scan
 
 
 jobs:
@@ -32,6 +35,7 @@ jobs:
       # This is used to complete the identity challenge
       # with sigstore/fulcio when running outside of PRs.
       id-token: write
+    
 
     steps:
       - name: Checkout repository
@@ -108,28 +112,20 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Diagnose Image content
       - name: Diagnose image contents
         run: |
-          echo "Checked-out commit: $(git rev-parse --short HEAD)"
-          echo "Requirements used by this checkout:"
-          cat requirements.txt
-
           echo "Image ID:"
-
-          docker image ls 'ghcr.io/aerihh/llm_docker'
-          docker image inspect ${{ env.IMAGE }} --format 'Image ID: {{.Id}}'
-          # ... your python metadata check, now on ${{ env.IMAGE }}
-
-          echo "Package metadata inside the image:"
-          docker run --rm --entrypoint python ghcr.io/aerihh/llm_docker:nightly -c '
-          import importlib.metadata as m
-          names = {"msgpack", "urllib3", "setuptools"}
-          for d in m.distributions():
-              name = (d.metadata.get("Name") or "").lower()
-              if name in names:
-                  print(f"{name}=={d.version}") 
-          '
+          docker image inspect "${{ env.IMAGE }}" --format '{{.Id}}'
+          echo "Local tags for this repo:"
+          docker image ls "${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}"
+          echo "Pinned packages inside the image:"
+          docker run --rm --entrypoint python "${{ env.IMAGE }}" -c '
+            import importlib.metadata as m
+            names = {"msgpack", "urllib3", "setuptools"}
+            for d in m.distributions():
+                n = (d.metadata.get("Name") or "").lower()
+                if n in names:
+                    print(f"{n}=={d.version}")'
 
       # If this step finds HIGH or CRITICAL issues, it returns exit-code 1,
       # failing the job before the image below ever gets pushed.
@@ -153,9 +149,9 @@ jobs:
         with:
           context: .
           push: true
-          tags: |
-            ${{ env.IMAGE }}
-            ${{ steps.meta.outputs.tags }}
+          # FIX 3: publish ONLY the metadata tags (:main, :nightly, semver).
+          # Including ${{ env.IMAGE }} here would publish :scan to GHCR.
+          tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
