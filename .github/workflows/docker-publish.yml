@@ -51,7 +51,30 @@ jobs:
           python-version: '3.13'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt -r requirements-dev.txt
+        run: |
+            pip install --no-cache-dir -U pip setuptools && \
+            pip install --no-cache-dir -r requirements.txt && \
+            pip install --no-cache-dir -r requirements-dev.txt
+            pip check
+
+      - name: Diagnose image contents
+        run: |
+          echo "Checked-out commit: $(git rev-parse --short HEAD)"
+          echo "Requirements used by this checkout:"
+          cat requirements.txt
+
+          echo "Image ID:"
+          docker image inspect ghcr.io/aerihh/llm_docker:nightly --format '{{.Id}}'
+
+          echo "Package metadata inside the image:"
+          docker run --rm --entrypoint python ghcr.io/aerihh/llm_docker:nightly -c '
+          import importlib.metadata as m
+          names = {"msgpack", "urllib3", "setuptools"}
+          for d in m.distributions():
+              name = (d.metadata.get("Name") or "").lower()
+              if name in names:
+                  print(f"{name}=={d.version}") 
+          '
 
       #ruff check
       - name: ruff check
