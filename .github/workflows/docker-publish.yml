@@ -57,25 +57,6 @@ jobs:
             pip install --no-cache-dir -r requirements-dev.txt
             pip check
 
-      - name: Diagnose image contents
-        run: |
-          echo "Checked-out commit: $(git rev-parse --short HEAD)"
-          echo "Requirements used by this checkout:"
-          cat requirements.txt
-
-          echo "Image ID:"
-          docker image inspect ghcr.io/aerihh/llm_docker:nightly --format '{{.Id}}'
-
-          echo "Package metadata inside the image:"
-          docker run --rm --entrypoint python ghcr.io/aerihh/llm_docker:nightly -c '
-          import importlib.metadata as m
-          names = {"msgpack", "urllib3", "setuptools"}
-          for d in m.distributions():
-              name = (d.metadata.get("Name") or "").lower()
-              if name in names:
-                  print(f"{name}=={d.version}") 
-          '
-
       #ruff check
       - name: ruff check
         uses: astral-sh/ruff-action@v4.1.0
@@ -124,6 +105,26 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # Diagnose Image content
+      - name: Diagnose image contents
+        run: |
+          echo "Checked-out commit: $(git rev-parse --short HEAD)"
+          echo "Requirements used by this checkout:"
+          cat requirements.txt
+
+          echo "Image ID:"
+          docker image inspect ghcr.io/aerihh/llm_docker:nightly --format '{{.Id}}'
+
+          echo "Package metadata inside the image:"
+          docker run --rm --entrypoint python ghcr.io/aerihh/llm_docker:nightly -c '
+          import importlib.metadata as m
+          names = {"msgpack", "urllib3", "setuptools"}
+          for d in m.distributions():
+              name = (d.metadata.get("Name") or "").lower()
+              if name in names:
+                  print(f"{name}=={d.version}") 
+          '
 
       # If this step finds HIGH or CRITICAL issues, it returns exit-code 1,
       # failing the job before the image below ever gets pushed.
