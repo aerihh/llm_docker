@@ -16,6 +16,11 @@ FROM python:3.14-slim
 
 WORKDIR /app
 
+# The base image ships its own old setuptools in site-packages.
+# COPY only merges/overwrites, it never deletes — so remove the stale
+# copy first or Trivy will still see setuptools 70.3.0 alongside 78.1.1.
+RUN rm -rf /usr/local/lib/python3.14/site-packages/setuptools*
+
 #brings over only the installed packages from the builder stage
 COPY --from=builder /install /usr/local
 
