@@ -19,7 +19,7 @@ env:
   # Use docker.io for Docker Hub if empty
   REGISTRY: ghcr.io
   # github.repository as <account>/<repo>
-  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_NAME: ghcr.io/aerihh/llm_docker:scan
 
 
 jobs:
@@ -101,7 +101,9 @@ jobs:
           context: .
           push: false
           load: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ env.IMAGE }}
+            ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -114,7 +116,10 @@ jobs:
           cat requirements.txt
 
           echo "Image ID:"
-          docker image inspect ghcr.io/aerihh/llm_docker:nightly --format '{{.Id}}'
+
+          docker image ls 'ghcr.io/aerihh/llm_docker'
+          docker image inspect ${{ env.IMAGE }} --format 'Image ID: {{.Id}}'
+          # ... your python metadata check, now on ${{ env.IMAGE }}
 
           echo "Package metadata inside the image:"
           docker run --rm --entrypoint python ghcr.io/aerihh/llm_docker:nightly -c '
@@ -131,11 +136,12 @@ jobs:
       - name: Run Trivy Vulnerability Scanner
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ fromJSON(steps.meta.outputs.json).tags[0] }}
+          image-ref: ${{ env.IMAGE }}
           format: 'table'
           exit-code: '1' # Fail the build if vulnerabilities match
           ignore-unfixed: true # Skip vulnerabilities that don't have an available patch yet
           severity: 'HIGH,CRITICAL'
+
 
       # Re-run build-push-action, this time pushing (don't push on PR). The
       # local image/layer cache from the step above makes this effectively
@@ -147,7 +153,9 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ env.IMAGE }}
+            ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
