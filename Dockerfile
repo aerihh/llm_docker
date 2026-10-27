@@ -1,36 +1,37 @@
-#gets the base image for python, name it "builder" so stage 2 can copy from it
+# ==========================================
+# ETAPA 1: Builder (Solo descarga y compila)
+# ==========================================
 FROM python:3.14-slim AS builder
 
-#assings the current directory for the source files
 WORKDIR /app
 
-#copies the requirements dependencies for the image
 COPY requirements.txt .
 
-#Installs the dependencies into a local folder instead of system-wide,
-#so stage 2 can copy just that folder over (no pip/cache left behind)
-#RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
-
+# En lugar de instalar con --prefix, creamos "wheels" (binarios empaquetados)
+# Esto descarga e incluye las versiones EXACTAS de tu requirements.txt
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir --prefix=/install -r requirements.txt
+    pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
 
-#final image: start fresh from the same slim base, without any build leftovers
+# ==========================================
+# ETAPA 2: Imagen Final (Limpia y segura)
+# ==========================================
 FROM python:3.14-slim
 
 WORKDIR /app
 
-# The base image ships its own old setuptools in site-packages.
-# COPY only merges/overwrites, it never deletes — so remove the stale
-# copy first or Trivy will still see setuptools 70.3.0 alongside 78.1.1.
-RUN rm -rf /usr/local/lib/python3.14/site-packages/setuptools*
+# Traemos únicamente los paquetes empaquetados (.whl) de la etapa anterior
+COPY --from=builder /app/wheels /wheels
 
-#brings over only the installed packages from the builder stage
-COPY --from=builder /install /usr/local
+# Forzamos a la imagen final a actualizar sus herramientas base e instalar 
+# tus dependencias sobreescribiendo CUALQUIER versión previa del sistema.
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir --no-index --find-links=/wheels /wheels/* && \
+    rm -rf /wheels
 
+# Copiar el código de tu aplicación
 COPY main.py .
 
 EXPOSE 8000
 
 ENTRYPOINT ["uvicorn"]
-
 CMD ["main:app", "--host", "0.0.0.0", "--port", "8000"]
