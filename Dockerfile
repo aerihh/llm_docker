@@ -9,7 +9,8 @@ COPY requirements.txt .
 
 #Installs the dependencies into a local folder instead of system-wide,
 #so stage 2 can copy just that folder over (no pip/cache left behind)
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
+    pip install --no-cache-dir -r requirements.txt
 
 #final image: start fresh from the same slim base, without any build leftovers
 FROM python:3.14-slim
