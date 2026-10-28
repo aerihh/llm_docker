@@ -100,13 +100,12 @@ jobs:
       # https://github.com/docker/build-push-action
       - name: Build Docker image (local, for scanning)
         id: build
-        uses: docker/build-push-action@0565240e2d4ab88bba5387d719585280857ece09 # v5.0.0
+        uses: docker/build-push-action@v5 # v5.0.0
         with:
           context: .
           push: false
           load: true
-          tags: |
-            ${{ env.IMAGE }}
+          tags: ${{ env.IMAGE }}
           labels: ${{ steps.meta.outputs.labels }}
           no-cache: true
 
@@ -136,7 +135,7 @@ jobs:
           exit-code: '1' # Fail the build if vulnerabilities match
           ignore-unfixed: true # Skip vulnerabilities that don't have an available patch yet
           severity: 'HIGH,CRITICAL'
-          trivy-caches: 'true' # Fuerza la recarga y escaneo limpio de la imagen
+          cache: 'true' # Fuerza la recarga y escaneo limpio de la imagen
 
 
       # Re-run build-push-action, this time pushing (don't push on PR). The
