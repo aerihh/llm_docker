@@ -135,6 +135,7 @@ jobs:
           exit-code: '1' # Fail the build if vulnerabilities match
           ignore-unfixed: true # Skip vulnerabilities that don't have an available patch yet
           severity: 'HIGH,CRITICAL'
+          vuln-type: 'library'
           cache: 'true' # Fuerza la recarga y escaneo limpio de la imagen
 
 
