@@ -24,9 +24,14 @@ COPY --from=builder /app/wheels /wheels
 
 # Instalamos de forma local y atómica. Al no usar `--no-index`, si por alguna extraña
 # razón faltase algo, pip puede salir a internet a buscarlo, asegurando que el build no falle.
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel && \
-    pip install --no-cache-dir --find-links=/wheels /wheels/* && \
-    rm -rf /wheels
+RUN pip install --no-cache-dir --find-links=/wheels /wheels/* && \
+    rm -rf /wheels && \
+    # pip y setuptools solo sirven para construir: sus copias vendidas internas
+    # (msgpack/urllib3/setuptools en pip, jaraco.context/wheel en setuptools)
+    # disparan falsos positivos HIGH en Trivy. La app solo corre uvicorn.
+    rm -rf /usr/local/lib/python3.14/site-packages/pip* \
+           /usr/local/lib/python3.14/site-packages/setuptools* \
+           /usr/local/lib/python3.14/site-packages/_distutils_hack
 
 # Copiar el código de tu aplicación
 COPY main.py .
